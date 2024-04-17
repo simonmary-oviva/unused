@@ -1,50 +1,11 @@
 import gleam/io
-import gleam/result
 import gleam/string
 import gleam/list
 import simplifile
-import file_streams/read_text_stream.{type ReadTextStream}
-import file_streams/read_stream_error
 import argv
-
-fn get_key(line: String) -> #(String, String) {
-  let key = string.split_once(line, ",")
-  let default = #("", "")
-  case key {
-    Ok(key) -> key
-    Error(_) -> default
-  }
-}
-
-fn parse_key(line: String) -> String {
-  let #(key_raw, _) = get_key(line)
-
-  key_raw
-  |> string.replace("\"", "")
-}
-
-fn collect_keys(rts: ReadTextStream, keys: List(String)) {
-  let line = read_text_stream.read_line(rts)
-  let unwrapped = result.unwrap(line, "")
-  let key = parse_key(unwrapped)
-  let updated = case string.is_empty(key) {
-    True -> keys
-    _ -> [key, ..keys]
-  }
-  case line {
-    Error(read_stream_error.EndOfStream) -> updated
-    Error(_) -> updated
-    // todo: proper error handling
-    Ok(_) -> collect_keys(rts, updated)
-  }
-}
-
-fn get_keys_from_file(filepath: String) {
-  let assert Ok(rts) = read_text_stream.open(filepath)
-  let keys = collect_keys(rts, [])
-  let _ = read_text_stream.close(rts)
-  keys
-}
+import unused/csv_util
+import unused/hook_util
+import unused/keys
 
 fn walk_dir(path: String, files: List(String)) -> List(String) {
   let assert Ok(is_path_dir) = simplifile.verify_is_directory(path)
@@ -112,13 +73,21 @@ fn collect_unused(
   }
 }
 
-fn runner(i18n_file: String, src_dir: String) -> Nil {
-  let keys = get_keys_from_file(i18n_file)
+fn runner(key_file: String, src_dir: String) -> Nil {
+  let parse_key = case string.contains(key_file, ".csv") {
+    True -> csv_util.parse_key
+    False -> hook_util.parse_key
+  }
+
+  let keys = keys.get_keys_from_file(key_file, parse_key)
   let all_files = walk_dir(src_dir, list.new())
-  let filtered = list.filter(all_files, fn(f) { !string.contains(f, "i18n") })
+  let filtered =
+    list.filter(all_files, fn(f) {
+      !string.contains(f, "i18n.csv") && !string.contains(f, key_file)
+    })
   let unused = collect_unused(keys, filtered, list.new())
   let assert Ok(all) =
-    list.reduce(unused, fn(acc, curr) { acc <> "\n " <> curr })
+    list.reduce(unused, fn(acc, curr) { acc <> "\n" <> curr })
   io.println(all)
 }
 
