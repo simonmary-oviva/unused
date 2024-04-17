@@ -9,7 +9,11 @@ Lists all unused localization keys in a frontend project
 ## Build
 
 ```sh
+# Compile to an escript
 gleam run -m gleescript
+
+# Make escript executable
+chmod +x ./unused
 ```
 
 If you don't have gleam installed for building, install it via homebrew
