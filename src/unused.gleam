@@ -73,6 +73,11 @@ fn collect_unused(
   }
 }
 
+fn parse_key_list(keys: List(String)) -> String {
+  let assert Ok(all) = list.reduce(keys, fn(acc, curr) { acc <> "\n" <> curr })
+  all
+}
+
 fn runner(key_file: String, src_dir: String) -> Nil {
   let parse_key = case string.contains(key_file, ".csv") {
     True -> csv_util.parse_key
@@ -86,14 +91,16 @@ fn runner(key_file: String, src_dir: String) -> Nil {
       !string.contains(f, "i18n.csv") && !string.contains(f, key_file)
     })
   let unused = collect_unused(keys, filtered, list.new())
-  let assert Ok(all) =
-    list.reduce(unused, fn(acc, curr) { acc <> "\n" <> curr })
-  io.println(all)
+  case unused {
+    [] -> "There are no unused keys"
+    _ -> parse_key_list(unused)
+  }
+  |> io.println
 }
 
 pub fn main() {
   case argv.load().arguments {
     [i18n_file, src_dir] -> runner(i18n_file, src_dir)
-    _ -> io.println("Usage: ./unused [I18N_FILE] [SRC_DIR]")
+    _ -> io.println("Usage: ./unused [I18N_FILE/LOCALIZATION_HOOK] [SRC_DIR]")
   }
 }
